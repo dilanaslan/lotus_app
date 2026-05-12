@@ -1,8 +1,8 @@
 import csv
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
-from main import generate_response
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +12,8 @@ BASE_DIR = Path(__file__).resolve().parent
 PROFILES_CSV = BASE_DIR / "profiles.csv"
 JOURNAL_CSV = BASE_DIR / "journal.csv"
 FEELINGS_CSV = BASE_DIR / "feelings.csv"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 EMOTION_EMOJIS = {
     "Happy": "😊",
@@ -263,6 +265,47 @@ def simple_chat_response(user_text: str, memory: Dict[str, Any]) -> str:
     )
 
 
+def generate_ai_response(user_text: str, memory: Dict[str, Any], memory_summary: str) -> str | None:
+    if not GEMINI_API_KEY:
+        return None
+
+    try:
+        from google import genai
+
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        profile = memory.get("profile") or {}
+        name = profile.get("name", "")
+
+        system_prompt = (
+            "You are Lotus, a warm and careful mental wellness chatbot. "
+            "Use the user's saved profile, journal entries, and feeling records only as private context. "
+            "Do not say 'your saved data says' unless the user asks directly. "
+            "Do not diagnose. Do not claim to be a therapist. "
+            "If the user mentions immediate danger or self-harm, encourage urgent real-world help. "
+            "Keep replies short, natural, supportive, and practical."
+        )
+        user_prompt = (
+            f"User name: {name}\n"
+            f"Backend memory:\n{memory_summary or 'No saved memory found.'}\n\n"
+            f"Current user message:\n{user_text}\n\n"
+            "Reply naturally."
+        )
+
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            config={"system_instruction": system_prompt},
+            contents=user_prompt,
+        )
+
+        if response and response.text:
+            return response.text.strip()
+
+        return None
+    except Exception as e:
+        print(f"[AI error] {e}")
+        return None
+
+
 @app.get("/")
 def root():
     return {"status": "ok", "message": "Lotus backend is running"}
@@ -370,12 +413,9 @@ def chat(payload: ChatRequest):
     memory = get_user_memory(payload.email)
     memory_summary = build_memory_summary(memory)
 
-    response = generate_response(
-        prompt=payload.text,
-        current_user_email=payload.email
-    )
-
-    #response = simple_chat_response(payload.text, memory)
+    response = generate_ai_response(payload.text, memory, memory_summary)
+    if not response:
+        response = simple_chat_response(payload.text, memory)
 
     return {
         "response": response,

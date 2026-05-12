@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'api_config.dart';
+
 class CalendarScreen extends StatefulWidget {
   final String email;
 
@@ -22,8 +24,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Map<String, List<Map<String, dynamic>>> journalsByDay = {};
   Map<String, List<Map<String, dynamic>>> feelingsByDay = {};
   bool isLoading = true;
-
-  static const String baseUrl = 'http://10.0.2.2:8000';
 
   String get _journalKey => 'journal_entries_${widget.email}';
   String get _feelingKey => 'feeling_entries_${widget.email}';
@@ -48,10 +48,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Future<void> _loadCalendarDataFromBackend() async {
     final journalsUrl = Uri.parse(
-      '$baseUrl/journals?email=${Uri.encodeComponent(widget.email)}',
+      '${ApiConfig.baseUrl}/journals?email=${Uri.encodeComponent(widget.email)}',
     );
     final feelingsUrl = Uri.parse(
-      '$baseUrl/feelings?email=${Uri.encodeComponent(widget.email)}',
+      '${ApiConfig.baseUrl}/feelings?email=${Uri.encodeComponent(widget.email)}',
     );
 
     final responses = await Future.wait([

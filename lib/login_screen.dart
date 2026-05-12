@@ -1,8 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'api_config.dart';
 import 'navigation_screen.dart';
 import 'profile_setup_screen.dart';
 
@@ -28,6 +30,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<Map<String, dynamic>?> _getSavedProfile(String email) async {
+    final localProfile = await _getSavedProfileFromDevice(email);
+    if (localProfile != null) return localProfile;
+
+    return _getSavedProfileFromBackend(email);
+  }
+
+  Future<Map<String, dynamic>?> _getSavedProfileFromDevice(String email) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('profiles_by_email');
 
@@ -40,6 +49,38 @@ class _LoginScreenState extends State<LoginScreen> {
     if (profile == null) return null;
 
     return Map<String, dynamic>.from(profile);
+  }
+
+  Future<Map<String, dynamic>?> _getSavedProfileFromBackend(String email) async {
+    try {
+      final url = Uri.parse(
+        '${ApiConfig.baseUrl}/user-memory?email=${Uri.encodeComponent(email)}',
+      );
+      final response = await http.get(url).timeout(const Duration(seconds: 20));
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return null;
+      }
+
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      final profile = data['profile'];
+      if (profile == null) return null;
+
+      final profileMap = Map<String, dynamic>.from(profile);
+
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('profiles_by_email');
+      Map<String, dynamic> allProfiles = {};
+      if (raw != null && raw.isNotEmpty) {
+        allProfiles = Map<String, dynamic>.from(jsonDecode(raw));
+      }
+      allProfiles[email] = profileMap;
+      await prefs.setString('profiles_by_email', jsonEncode(allProfiles));
+
+      return profileMap;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _continueWithEmail() async {

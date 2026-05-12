@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'api_config.dart';
+
 class ProfileSetupScreen extends StatefulWidget {
   final String email;
   final String? name;
@@ -38,8 +40,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     {'title': 'Knitting', 'rating': 2},
     {'title': 'Growing Flowers', 'rating': 4},
   ];
-
-  static const String baseUrl = 'http://10.0.2.2:8000';
 
   @override
   void initState() {
@@ -113,7 +113,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Future<void> _sendProfileToBackend(Map<String, dynamic> profile) async {
     final response = await http
         .post(
-      Uri.parse('$baseUrl/save-profile'),
+      Uri.parse('${ApiConfig.baseUrl}/save-profile'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(profile),
     )

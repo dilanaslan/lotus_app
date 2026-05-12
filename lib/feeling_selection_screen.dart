@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'api_config.dart';
+
 final List<Map<String, dynamic>> emotions = [
   {"emoji": "😊", "label": "Happy", "type": "good"},
   {"emoji": "😍", "label": "Loved", "type": "good"},
@@ -43,8 +45,6 @@ class _EmotionSelectionScreenState extends State<EmotionSelectionScreen> {
   late final List<double> emotionLevels;
   late final List<TextEditingController> noteControllers;
   bool isSaving = false;
-
-  static const String baseUrl = 'http://10.0.2.2:8000';
 
   String get _feelingKey => 'feeling_entries_${widget.email}';
 
@@ -92,7 +92,7 @@ class _EmotionSelectionScreenState extends State<EmotionSelectionScreen> {
   Future<void> _sendFeelingsToBackend(Map<String, dynamic> entry) async {
     final response = await http
         .post(
-      Uri.parse('$baseUrl/save-feelings'),
+      Uri.parse('${ApiConfig.baseUrl}/save-feelings'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(entry),
     )

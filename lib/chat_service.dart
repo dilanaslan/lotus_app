@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-class ChatService {
-  static const String baseUrl = "http://10.0.2.2:8000";
+import 'api_config.dart';
 
+class ChatService {
   static Future<String> sendMessage({
     required String email,
     required String message,
@@ -12,7 +12,7 @@ class ChatService {
     try {
       final response = await http
           .post(
-        Uri.parse("$baseUrl/chat"),
+        Uri.parse("${ApiConfig.baseUrl}/chat"),
         headers: {
           "Content-Type": "application/json; charset=UTF-8",
         },
@@ -21,7 +21,7 @@ class ChatService {
           "text": message,
         }),
       )
-          .timeout(const Duration(seconds: 2000));
+          .timeout(const Duration(seconds: 120));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));

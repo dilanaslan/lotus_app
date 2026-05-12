@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'api_config.dart';
+
 class JournalScreen extends StatefulWidget {
   final String email;
 
@@ -21,8 +23,6 @@ class _JournalScreenState extends State<JournalScreen> {
 
   List<Map<String, dynamic>> saved = [];
   bool isSaving = false;
-
-  static const String baseUrl = 'http://10.0.2.2:8000';
 
   String get _journalKey => 'journal_entries_${widget.email}';
 
@@ -57,7 +57,7 @@ class _JournalScreenState extends State<JournalScreen> {
   Future<void> _sendJournalToBackend(Map<String, dynamic> entry) async {
     final response = await http
         .post(
-      Uri.parse('$baseUrl/save-journal'),
+      Uri.parse('${ApiConfig.baseUrl}/save-journal'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(entry),
     )
