@@ -39,14 +39,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
       isLoading = true;
     });
 
+    final localJournals = await _loadJournalEntriesFromDevice();
+    final localFeelings = await _loadFeelingEntriesFromDevice();
+
     try {
-      await _loadCalendarDataFromBackend();
+      final backendData = await _loadCalendarDataFromBackend();
+      _setCalendarEntries(
+        _mergeEntries(localJournals, backendData.journals),
+        _mergeEntries(localFeelings, backendData.feelings),
+      );
     } catch (_) {
-      await _loadCalendarDataFromDevice();
+      _setCalendarEntries(localJournals, localFeelings);
     }
   }
 
-  Future<void> _loadCalendarDataFromBackend() async {
+  Future<CalendarData> _loadCalendarDataFromBackend() async {
     final journalsUrl = Uri.parse(
       '${ApiConfig.baseUrl}/journals?email=${Uri.encodeComponent(widget.email)}',
     );
@@ -55,8 +62,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
 
     final responses = await Future.wait([
-      http.get(journalsUrl).timeout(const Duration(seconds: 10)),
-      http.get(feelingsUrl).timeout(const Duration(seconds: 10)),
+      http.get(journalsUrl).timeout(const Duration(seconds: 20)),
+      http.get(feelingsUrl).timeout(const Duration(seconds: 20)),
     ]);
 
     final journalsResponse = responses[0];
@@ -83,30 +90,57 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
     );
 
-    _setCalendarEntries(journalEntries, feelingEntries);
+    return CalendarData(
+      journals: journalEntries,
+      feelings: feelingEntries,
+    );
   }
 
-  Future<void> _loadCalendarDataFromDevice() async {
+  Future<List<Map<String, dynamic>>> _loadJournalEntriesFromDevice() async {
     final prefs = await SharedPreferences.getInstance();
     final journalRaw = prefs.getString(_journalKey);
+
+    if (journalRaw == null || journalRaw.isEmpty) return [];
+
+    return List<Map<String, dynamic>>.from(
+      jsonDecode(journalRaw).map((entry) => Map<String, dynamic>.from(entry)),
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _loadFeelingEntriesFromDevice() async {
+    final prefs = await SharedPreferences.getInstance();
     final feelingRaw = prefs.getString(_feelingKey);
 
-    var journalEntries = <Map<String, dynamic>>[];
-    var feelingEntries = <Map<String, dynamic>>[];
+    if (feelingRaw == null || feelingRaw.isEmpty) return [];
 
-    if (journalRaw != null && journalRaw.isNotEmpty) {
-      journalEntries = List<Map<String, dynamic>>.from(
-        jsonDecode(journalRaw).map((entry) => Map<String, dynamic>.from(entry)),
-      );
+    return List<Map<String, dynamic>>.from(
+      jsonDecode(feelingRaw).map((entry) => Map<String, dynamic>.from(entry)),
+    );
+  }
+
+  List<Map<String, dynamic>> _mergeEntries(
+    List<Map<String, dynamic>> localEntries,
+    List<Map<String, dynamic>> backendEntries,
+  ) {
+    final merged = <String, Map<String, dynamic>>{};
+
+    for (final entry in backendEntries) {
+      merged[_entryIdentity(entry)] = entry;
     }
 
-    if (feelingRaw != null && feelingRaw.isNotEmpty) {
-      feelingEntries = List<Map<String, dynamic>>.from(
-        jsonDecode(feelingRaw).map((entry) => Map<String, dynamic>.from(entry)),
-      );
+    for (final entry in localEntries) {
+      merged[_entryIdentity(entry)] = entry;
     }
 
-    _setCalendarEntries(journalEntries, feelingEntries);
+    return merged.values.toList();
+  }
+
+  String _entryIdentity(Map<String, dynamic> entry) {
+    final date = entry['date']?.toString() ?? '';
+    final text = entry['text']?.toString() ?? '';
+    final goodPercent = entry['goodPercent']?.toString() ?? '';
+    final badPercent = entry['badPercent']?.toString() ?? '';
+    return '$date|$text|$goodPercent|$badPercent';
   }
 
   void _setCalendarEntries(
@@ -467,4 +501,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
     );
   }
+}
+
+class CalendarData {
+  final List<Map<String, dynamic>> journals;
+  final List<Map<String, dynamic>> feelings;
+
+  CalendarData({
+    required this.journals,
+    required this.feelings,
+  });
 }
